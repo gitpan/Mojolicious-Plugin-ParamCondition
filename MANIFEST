@@ -1,0 +1,8 @@
+LICENSE
+MANIFEST
+META.yml
+Makefile.PL
+README
+dist.ini
+lib/Mojolicious/Plugin/ParamCondition.pm
+t/conditionRed.t
