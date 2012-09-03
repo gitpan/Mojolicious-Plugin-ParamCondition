@@ -9,19 +9,38 @@ sub register {
 }
 
 sub _check {
-  my ($value) = @_;
-  return defined $value ? 1 : undef;
+  my ($value, $pattern) = @_;
+
+  if (!defined $pattern) {
+      return defined $value ? 1 : undef;
+  }
+
+  return 1
+    if $value && $pattern && ref $pattern eq 'Regexp' && $value =~ $pattern;
+  return $value && defined $pattern && $pattern eq $value ? 1 : undef;
 }
 
 sub _params {
-  my ($r, $c, $captures, $names) = @_;
-  return unless $names && ref $names eq 'ARRAY';
+  my ($r, $c, $captures, $params) = @_;
+
+  unless($params && (ref $params eq 'ARRAY' || ref $params eq 'HASH')) {
+    return;
+  }
 
   # All parameters need to exist
   my $p = $c->req->params;
-  foreach my $name (@{ $names }) {
-    return unless _check(scalar $p->param($name));
+
+  if (ref $params eq 'ARRAY') {
+    foreach my $name (@{ $params }) {
+      return unless _check(scalar $p->param($name));
+    }
   }
+  elsif (ref $params eq 'HASH') {
+    while (my ($name, $pattern) = each %$params) {
+      return unless _check(scalar $p->param($name), $pattern);
+    }
+  }
+
   return 1;
 }
 
@@ -38,6 +57,9 @@ Mojolicious::Plugin::ParamCondition - Request parameter condition plugin
 
   # The user selected a product with an index exists.
   get '/' => (params => [qw(productIdx)]) => sub {...};
+
+  # The user selected a product with an index is digits and there is a username.
+  get '/' => (params => ["username"]) => (params => {"productIdx" => qr/^\d+$/}) => sub {...};
 
 =head1 DESCRIPTION
 

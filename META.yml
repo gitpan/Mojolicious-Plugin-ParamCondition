@@ -14,4 +14,4 @@ meta-spec:
 name: Mojolicious-Plugin-ParamCondition
 requires:
   Mojolicious: 0
-version: 0.001
+version: 0.002
