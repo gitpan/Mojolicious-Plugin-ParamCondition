@@ -15,15 +15,26 @@ sub _check {
       return defined $value ? 1 : undef;
   }
 
-  return 1
-    if $value && $pattern && ref $pattern eq 'Regexp' && $value =~ $pattern;
-  return $value && defined $pattern && $pattern eq $value ? 1 : undef;
+  if ($value && $pattern && ref $pattern eq 'Regexp') {
+      return 1 if $value =~ $pattern;
+  }
+
+  if ($value && defined $pattern) {
+      if ($pattern eq $value) {
+          return 1;
+      }
+      else {
+          return undef;
+      }
+  }
+
+  return undef;
 }
 
 sub _params {
   my ($r, $c, $captures, $params) = @_;
 
-  unless($params && (ref $params eq 'ARRAY' || ref $params eq 'HASH')) {
+  unless ($params && (ref $params eq 'ARRAY' || ref $params eq 'HASH')) {
     return;
   }
 
@@ -32,10 +43,11 @@ sub _params {
 
   if (ref $params eq 'ARRAY') {
     foreach my $name (@{ $params }) {
-      return unless _check(scalar $p->param($name));
+      return unless _check(scalar $p->param($name), undef);
     }
   }
   elsif (ref $params eq 'HASH') {
+    keys %$params;
     while (my ($name, $pattern) = each %$params) {
       return unless _check(scalar $p->param($name), $pattern);
     }
@@ -55,16 +67,58 @@ Mojolicious::Plugin::ParamCondition - Request parameter condition plugin
   # Mojolicious::Lite
   plugin 'ParamCondition';
 
-  # The user selected a product with an index exists.
+  # Does a paramter "productIdx" exist (i.e. ?productIdx=)?
   get '/' => (params => [qw(productIdx)]) => sub {...};
 
-  # The user selected a product with an index is digits and there is a username.
-  get '/' => (params => ["username"]) => (params => {"productIdx" => qr/^\d+$/}) => sub {...};
+  # Does a paramter "productIdx" match a word?
+  get '/' => (params => {productIdx => "oranges"}) => sub {...};
+
+  # Does a paramter "productIdx" match a regular expression?
+  get '/' => (params => {productIdx => qr/\w/}) => sub {
+
+  # Does a paramter username exist and does paramter fruit match a word?
+  get '/' => (params => ["username"]) => (params => {fruit => "oranges"}) => sub {
 
 =head1 DESCRIPTION
 
-L<Mojolicious::Plugin::ParamCondition> is a routes condition for parameter
-based routes.
+L<Mojolicious::Plugin::ParamCondition> is a routes condition based 
+on the presence and value of request parameters.
+
+=head2 Dispatching
+
+Given the following code:
+
+    get '/' => (params => ["username"]) => (params => {mode => "bread"}) => sub {
+        my $self = shift;
+
+        $self->render_text("Buy some bread!.");
+    };
+
+    get '/' => (params => ["username"]) => (params => {mode => "login"}) => sub {
+        my $self = shift;
+
+        $self->render_text("Thank you: logging in.");
+    };
+
+    get '/' => (params => ["username"]) => sub {
+        my $self = shift;
+
+        $self->render_text("Please enter a password");
+    };
+
+    get '/' => sub {
+        my $self = shift;
+
+        $self->render_text("Good morning.");
+    };
+
+The following GET request will match:
+
+    /                             -> $self->render(text => "Good morning");
+    /?username=                   -> $self->render(text => "Please enter a password");
+    /?username=Baerbel            -> $self->render(text => "Please enter a password");
+    /?username=Baerbel&mode=login -> $self->render(text => "Thank you: logging in.");
+    /?username=Baerbel&mode=bread -> $self->render(text => "Buy some bread!.");
 
 =head1 METHODS
 
